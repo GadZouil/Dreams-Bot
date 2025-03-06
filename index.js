@@ -4,6 +4,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { sequelize } = require('./models');
 
 // Création du client Discord
 const client = new Client({
@@ -13,9 +14,7 @@ const client = new Client({
 // Collection pour stocker les commandes
 client.commands = new Collection();
 
-// index.js
-const { sequelize } = require('./models');
-
+// Synchronisation des modèles
 sequelize.sync()  // .sync({ force: true }) pour recréer les tables (attention en production)
   .then(() => {
     console.log('✅ Modèles synchronisés avec la base de données.');
@@ -23,7 +22,7 @@ sequelize.sync()  // .sync({ force: true }) pour recréer les tables (attention 
   })
   .catch(err => console.error('Erreur de synchronisation :', err));
 
-// Fonction pour charger les commandes récursivement depuis les sous-dossiers
+// Chargement des commandes récursivement
 function loadCommands(dir) {
     const files = fs.readdirSync(dir, { withFileTypes: true });
     
@@ -31,7 +30,6 @@ function loadCommands(dir) {
         const filePath = path.join(dir, file.name);
         
         if (file.isDirectory()) {
-            // Exploration récursive des sous-dossiers
             loadCommands(filePath);
         } else if (file.name.endsWith('.js')) {
             const command = require(filePath);
@@ -45,21 +43,19 @@ function loadCommands(dir) {
     }
 }
 
-// Chargement des commandes depuis "commands/"
 const commandsPath = path.join(__dirname, 'commands');
 loadCommands(commandsPath);
 
-// Événement déclenché quand le bot est prêt
-client.once('ready', () => {
-    console.log(`✅ Bot connecté en tant que ${client.user.tag}`);
-});
+// Importation des handlers
+const buttonHandler = require('./handlers/buttonHandler');
+const selectMenuHandler = require('./handlers/selectMenuHandler');
+const modalHandler = require('./handlers/modalHandler');
 
-// Gestion des interactions (commandes, boutons, menus, modals)
+// Gestion des interactions
 client.on('interactionCreate', async interaction => {
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
         if (!command) return;
-        
         try {
             await command.execute(interaction);
         } catch (error) {
@@ -67,23 +63,11 @@ client.on('interactionCreate', async interaction => {
             await interaction.reply({ content: '❌ Une erreur est survenue en exécutant la commande.', ephemeral: true });
         }
     } else if (interaction.isButton()) {
-        if (interaction.customId === 'poll_yes') {
-            await interaction.reply({ content: '👍 Vous avez voté **Oui**.', ephemeral: true });
-        } else if (interaction.customId === 'poll_no') {
-            await interaction.reply({ content: '👎 Vous avez voté **Non**.', ephemeral: true });
-        }
+        await buttonHandler(interaction);
     } else if (interaction.isStringSelectMenu()) {
-        if (interaction.customId === 'choose_role') {
-            const selected = interaction.values[0];
-            await interaction.reply({ content: `Vous avez choisi : **${selected}**`, ephemeral: true });
-        }
+        await selectMenuHandler(interaction);
     } else if (interaction.isModalSubmit()) {
-        if (interaction.customId === 'feedbackModal') {
-            const topic = interaction.fields.getTextInputValue('feedbackTopic');
-            const description = interaction.fields.getTextInputValue('feedbackDescription');
-            console.log("Feedback reçu :", topic, description);
-            await interaction.reply({ content: "🙏 Merci pour votre feedback !", ephemeral: true });
-        }
+        await modalHandler(interaction);
     }
 });
 

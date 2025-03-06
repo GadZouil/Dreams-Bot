@@ -1,6 +1,6 @@
 // commands/add-money.js
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../../models/User');
+const User = require('../../models/user');
 
 module.exports = {
   data: new SlashCommandBuilder()
