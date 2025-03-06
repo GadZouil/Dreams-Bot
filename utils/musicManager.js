@@ -4,10 +4,14 @@ const { DefaultExtractors } = require('@discord-player/extractor');
 
 module.exports = async (client) => {
   // Crée le Player en passant le client Discord
-  const player = new Player(client);
+  const player = new Player(client, {
+    skipFFmpeg: false
+  });
 
   // Charge les extracteurs par défaut en utilisant loadMulti
   await player.extractors.loadMulti(DefaultExtractors);
+
+  console.log(player.scanDeps());
 
   player.events.on('playerStart', (queue, track) => {
     if (queue.metadata && queue.metadata.channel) {
