@@ -13,6 +13,16 @@ const client = new Client({
 // Collection pour stocker les commandes
 client.commands = new Collection();
 
+// index.js
+const { sequelize } = require('./models');
+
+sequelize.sync()  // .sync({ force: true }) pour recréer les tables (attention en production)
+  .then(() => {
+    console.log('✅ Modèles synchronisés avec la base de données.');
+    // Démarrer ton bot ici
+  })
+  .catch(err => console.error('Erreur de synchronisation :', err));
+
 // Fonction pour charger les commandes récursivement depuis les sous-dossiers
 function loadCommands(dir) {
     const files = fs.readdirSync(dir, { withFileTypes: true });
