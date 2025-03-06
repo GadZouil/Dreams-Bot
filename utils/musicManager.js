@@ -14,7 +14,7 @@ module.exports = async (client) => {
   console.log("✅ Extracteurs chargés :", DefaultExtractors.map(e => e.identifier));
   console.log(player.scanDeps());
 
-  // Lorsqu'une musique démarre, récupère le channel par son ID
+  // Lorsqu'une musique démarre, récupère le channel par son ID (stocké dans metadata)
   player.events.on('playerStart', (queue, track) => {
     if (queue.metadata && queue.metadata.channelId) {
       const channel = client.channels.cache.get(queue.metadata.channelId);
@@ -25,10 +25,6 @@ module.exports = async (client) => {
   player.events.on('debug', (queue, message) => {
     console.log(`[DEBUG ${queue.guild.id}] ${message}`);
   });
-
-  queue.node.on('error', error => {
-    console.error('Error in audio player:', error);
-  });  
 
   return player;
 };

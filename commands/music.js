@@ -46,7 +46,7 @@ module.exports = {
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
 
-    // Gestion des sous-commandes autres que "play"
+    // Gestion des autres sous-commandes
     if (subcommand !== 'play') {
       const player = interaction.client.player;
       switch (subcommand) {
@@ -108,7 +108,7 @@ module.exports = {
     }
     const player = interaction.client.player;
 
-    // Si le query est un lien direct YouTube, le traiter directement
+    // Traitement pour lien direct YouTube
     if (query.startsWith('https://youtu.be/') || query.includes('youtube.com')) {
       const searchResult = await player.search(query, { requestedBy: interaction.user });
       if (!searchResult || !searchResult.tracks.length) {
@@ -135,7 +135,7 @@ module.exports = {
       return interaction.reply(`▶️ **${track.title}** ajouté à la file d'attente !`);
     }
 
-    // Recherche par mots-clés : afficher 5 résultats et proposer un choix via boutons
+    // Recherche par mots-clés : afficher 5 résultats pour sélection
     await interaction.deferReply();
     const searchResult = await player.search(query, {
       requestedBy: interaction.user,
@@ -152,7 +152,6 @@ module.exports = {
       .setColor('#2f3136')
       .setFooter({ text: 'Cliquez sur un bouton pour sélectionner la piste à ajouter.' });
       
-    // Création des boutons numérotés
     const row = new ActionRowBuilder();
     tracks.forEach((_, i) => {
       row.addComponents(
@@ -163,7 +162,7 @@ module.exports = {
       );
     });
 
-    // Stocker temporairement les résultats dans une Map sur le client
+    // Stocker temporairement les résultats pour cet ID d'interaction
     if (!interaction.client.searchCache) interaction.client.searchCache = new Map();
     interaction.client.searchCache.set(interaction.id, tracks);
 
