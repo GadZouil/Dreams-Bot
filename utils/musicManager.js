@@ -16,6 +16,7 @@ module.exports = async (client) => {
 
   // Lorsqu'une musique démarre, récupère le channel par son ID (stocké dans metadata)
   player.events.on('playerStart', (queue, track) => {
+    queue.node.on('error', error => console.error('Error in audio player:', error));
     if (queue.metadata && queue.metadata.channelId) {
       const channel = client.channels.cache.get(queue.metadata.channelId);
       if (channel) channel.send(`▶️ Lecture en cours : **${track.title}**`);
