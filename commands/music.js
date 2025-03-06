@@ -56,7 +56,7 @@ module.exports = {
   
     switch (subcommand) {
       case 'play': {
-        await interaction.deferReply(); // Diffère la réponse pour gagner du temps
+        await interaction.deferReply();
       
         const searchResult = await player.search(query, {
           requestedBy: interaction.user,
@@ -66,22 +66,24 @@ module.exports = {
           return interaction.followUp('❌ Aucune musique trouvée pour ta recherche.');
         }
       
-        // Récupérer la première track
+        // Récupère la première track
         const track = searchResult.tracks[0];
       
-        // Forcer FFmpeg en désactivant skipFFmpeg
-        if (!track.dispatcherConfig) {
-          track.dispatcherConfig = {};
-        }
-        track.dispatcherConfig.skipFFmpeg = false;
+        // Crée une copie du track avec skipFFmpeg forcé à false
+        const modifiedTrack = {
+          ...track,
+          dispatcherConfig: {
+            ...track.dispatcherConfig,
+            skipFFmpeg: false,
+          },
+        };
       
-        // Création ou récupération de la queue avec skipFFmpeg désactivé
         const queue = await player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
           leaveOnEnd: false,
           leaveOnEmpty: false,
           leaveOnStop: false,
-          skipFFmpeg: false, // option pour la queue (bien que le track ait déjà sa config)
+          skipFFmpeg: false,
         });
       
         try {
@@ -91,14 +93,14 @@ module.exports = {
           return interaction.followUp(`❌ Impossible de rejoindre le salon vocal : ${error}`);
         }
       
-        queue.addTrack(track);
+        queue.addTrack(modifiedTrack);
       
         if (!queue.node.isPlaying()) {
           await queue.node.play();
         }
       
-        return interaction.followUp(`▶️ **${track.title}** ajouté à la file d'attente !`);
-      }      
+        return interaction.followUp(`▶️ **${modifiedTrack.title}** ajouté à la file d'attente !`);
+      }           
   
       case 'skip': {
         const queue = player.nodes.get(interaction.guildId);
