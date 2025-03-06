@@ -70,13 +70,7 @@ module.exports = {
         const track = searchResult.tracks[0];
       
         // Crée une copie du track avec skipFFmpeg forcé à false
-        const modifiedTrack = {
-          ...track,
-          dispatcherConfig: {
-            ...track.dispatcherConfig,
-            skipFFmpeg: false,
-          },
-        };
+        track.dispatcherConfig.skipFFmpeg = false;
       
         const queue = await player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
@@ -93,13 +87,13 @@ module.exports = {
           return interaction.followUp(`❌ Impossible de rejoindre le salon vocal : ${error}`);
         }
       
-        queue.addTrack(modifiedTrack);
+        queue.addTrack(track);
       
         if (!queue.node.isPlaying()) {
           await queue.node.play();
         }
       
-        return interaction.followUp(`▶️ **${modifiedTrack.title}** ajouté à la file d'attente !`);
+        return interaction.followUp(`▶️ **${track.title}** ajouté à la file d'attente !`);
       }           
   
       case 'skip': {
