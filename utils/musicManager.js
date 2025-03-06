@@ -26,5 +26,9 @@ module.exports = async (client) => {
     console.log(`[DEBUG ${queue.guild.id}] ${message}`);
   });
 
+  queue.node.on('error', error => {
+    console.error('Error in audio player:', error);
+  });  
+
   return player;
 };
