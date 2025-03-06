@@ -57,41 +57,46 @@ module.exports = {
     switch (subcommand) {
       case 'play': {
         await interaction.deferReply(); // Diffère la réponse pour gagner du temps
-
+      
         const searchResult = await player.search(query, {
           requestedBy: interaction.user,
         });
-  
+      
         if (!searchResult || !searchResult.tracks.length) {
           return interaction.followUp('❌ Aucune musique trouvée pour ta recherche.');
         }
-  
+      
         const track = searchResult.tracks[0];
-  
-        // Création ou récupération de la queue avec skipFFmpeg forcé à false
+      
+        // Forcer le traitement via FFmpeg en désactivant l'option "skipFFmpeg"
+        if (track.dispatcherConfig) {
+          track.dispatcherConfig.skipFFmpeg = false;
+        }
+      
+        // Création ou récupération de la queue pour le serveur avec options adaptées
         const queue = await player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
           leaveOnEnd: false,
           leaveOnEmpty: false,
           leaveOnStop: false,
-          skipFFmpeg: false, // IMPORTANT : Force l'utilisation de FFmpeg pour convertir le flux
+          skipFFmpeg: false, // on s'assure ici que la queue ne force pas skipFFmpeg
         });
-  
+      
         try {
           if (!queue.connection) await queue.connect(voiceChannel);
         } catch (error) {
           player.nodes.delete(interaction.guild.id);
           return interaction.followUp(`❌ Impossible de rejoindre le salon vocal : ${error}`);
         }
-  
+      
         queue.addTrack(track);
-  
+      
         if (!queue.node.isPlaying()) {
           await queue.node.play();
         }
-  
+      
         return interaction.followUp(`▶️ **${track.title}** ajouté à la file d'attente !`);
-      }
+      }      
   
       case 'skip': {
         const queue = player.nodes.get(interaction.guildId);
