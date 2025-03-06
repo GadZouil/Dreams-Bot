@@ -57,21 +57,27 @@ module.exports = {
     switch (subcommand) {
       case 'play': {
         await interaction.deferReply();
-      
+        
         const searchResult = await player.search(query, {
           requestedBy: interaction.user,
         });
-      
+        
         if (!searchResult || !searchResult.tracks.length) {
           return interaction.followUp('❌ Aucune musique trouvée pour ta recherche.');
         }
-      
+        
         // Récupère la première track
         const track = searchResult.tracks[0];
-      
-        // Crée une copie du track avec skipFFmpeg forcé à false
-        track.dispatcherConfig.skipFFmpeg = false;
-      
+        
+        // Crée une copie du track en forçant skipFFmpeg à false
+        const modifiedTrack = {
+          ...track,
+          dispatcherConfig: {
+            ...track.dispatcherConfig, // Si undefined, cela devient {} grâce au spread operator
+            skipFFmpeg: false,
+          },
+        };
+        
         const queue = await player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
           leaveOnEnd: false,
@@ -79,22 +85,22 @@ module.exports = {
           leaveOnStop: false,
           skipFFmpeg: false,
         });
-      
+        
         try {
           if (!queue.connection) await queue.connect(voiceChannel);
         } catch (error) {
           player.nodes.delete(interaction.guild.id);
           return interaction.followUp(`❌ Impossible de rejoindre le salon vocal : ${error}`);
         }
-      
-        queue.addTrack(track);
-      
+        
+        queue.addTrack(modifiedTrack);
+        
         if (!queue.node.isPlaying()) {
           await queue.node.play();
         }
-      
-        return interaction.followUp(`▶️ **${track.title}** ajouté à la file d'attente !`);
-      }           
+        
+        return interaction.followUp(`▶️ **${modifiedTrack.title}** ajouté à la file d'attente !`);
+      }      
   
       case 'skip': {
         const queue = player.nodes.get(interaction.guildId);
