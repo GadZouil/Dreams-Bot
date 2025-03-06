@@ -9,8 +9,8 @@ module.exports = async (client) => {
   });
 
   // Charge les extracteurs par défaut en utilisant loadMulti
-  await player.extractors.loadMulti(DefaultExtractors);
-  await player.extractors.register(YouTubeExtractor);
+  const extractors = await player.extractors.loadDefault();
+  console.log("✅ Extracteurs chargés :", extractors.map(e => e.identifier));  
 
   console.log(player.scanDeps());
 
