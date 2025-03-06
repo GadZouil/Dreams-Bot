@@ -1,7 +1,8 @@
 // models/user.js
-const { sequelize, DataTypes } = require('./index');
+const sequelize = require('../sequelize');
+const { DataTypes } = require('sequelize');
 
-const user = sequelize.define('user', {
+const User = sequelize.define('user', {
   id: {
     type: DataTypes.STRING,
     primaryKey: true,
@@ -17,7 +18,7 @@ const user = sequelize.define('user', {
   }
 }, {
   tableName: 'user',
-  timestamps: false, // si ta table n'a pas de colonnes createdAt/updatedAt
+  timestamps: false,
 });
 
-module.exports = user;
+module.exports = User;

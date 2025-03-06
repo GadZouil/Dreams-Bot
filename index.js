@@ -4,15 +4,26 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const createPlayer = require('./utils/musicManager');
 const { sequelize } = require('./models');
 
 // Création du client Discord
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.GuildVoiceStates
+    ]
 });
 
 // Collection pour stocker les commandes
 client.commands = new Collection();
+
+// Initialisation asynchrone du player
+(async () => {
+    client.player = await createPlayer(client);
+})();
 
 // Synchronisation des modèles
 sequelize.sync()  // .sync({ force: true }) pour recréer les tables (attention en production)
@@ -25,10 +36,8 @@ sequelize.sync()  // .sync({ force: true }) pour recréer les tables (attention 
 // Chargement des commandes récursivement
 function loadCommands(dir) {
     const files = fs.readdirSync(dir, { withFileTypes: true });
-    
     for (const file of files) {
         const filePath = path.join(dir, file.name);
-        
         if (file.isDirectory()) {
             loadCommands(filePath);
         } else if (file.name.endsWith('.js')) {
