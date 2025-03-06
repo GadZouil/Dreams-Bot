@@ -4,7 +4,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const createPlayer = require('./utils/musicManager');
+const Distube = require('distube');
 const { sequelize } = require('./models');
 
 // Création du client Discord
@@ -13,17 +13,20 @@ const client = new Client({
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent,
-      GatewayIntentBits.GuildVoiceStates
-    ]
-});
+      GatewayIntentBits.GuildVoiceStates,
+    ],
+  });
 
 // Collection pour stocker les commandes
 client.commands = new Collection();
 
-// Initialisation asynchrone du player
-(async () => {
-    client.player = await createPlayer(client);
-})();
+client.distube = new Distube(client, {
+    emitNewSongOnly: true,
+    leaveOnStop: false,
+    leaveOnEmpty: false,
+    searchSongs: 5, // nombre de résultats de recherche par défaut
+    youtubeDL: false, // vous pouvez l'activer si nécessaire
+  });
 
 // Synchronisation des modèles
 sequelize.sync()  // .sync({ force: true }) pour recréer les tables (attention en production)
