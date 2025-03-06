@@ -1,6 +1,6 @@
 // utils/musicManager.js
 const { Player } = require('discord-player');
-const { DefaultExtractors, YouTubeExtractor } = require('@discord-player/extractor');
+const { DefaultExtractors } = require('@discord-player/extractor');
 
 module.exports = async (client) => {
   // Crée le Player en passant le client Discord
@@ -9,8 +9,9 @@ module.exports = async (client) => {
   });
 
   // Charge les extracteurs par défaut en utilisant loadMulti
-  const extractors = await player.extractors.loadDefault();
-  console.log("✅ Extracteurs chargés :", extractors.map(e => e.identifier));  
+  await player.extractors.loadMulti(DefaultExtractors);
+
+  console.log("✅ Extracteurs chargés :", DefaultExtractors.map(e => e.identifier));
 
   console.log(player.scanDeps());
 
