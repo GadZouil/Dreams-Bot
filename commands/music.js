@@ -66,20 +66,22 @@ module.exports = {
           return interaction.followUp('❌ Aucune musique trouvée pour ta recherche.');
         }
       
+        // Récupérer la première track
         const track = searchResult.tracks[0];
       
-        // Forcer le traitement via FFmpeg en désactivant l'option "skipFFmpeg"
-        if (track.dispatcherConfig) {
-          track.dispatcherConfig.skipFFmpeg = false;
+        // Forcer FFmpeg en désactivant skipFFmpeg
+        if (!track.dispatcherConfig) {
+          track.dispatcherConfig = {};
         }
+        track.dispatcherConfig.skipFFmpeg = false;
       
-        // Création ou récupération de la queue pour le serveur avec options adaptées
+        // Création ou récupération de la queue avec skipFFmpeg désactivé
         const queue = await player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
           leaveOnEnd: false,
           leaveOnEmpty: false,
           leaveOnStop: false,
-          skipFFmpeg: false, // on s'assure ici que la queue ne force pas skipFFmpeg
+          skipFFmpeg: false, // option pour la queue (bien que le track ait déjà sa config)
         });
       
         try {
