@@ -4,7 +4,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const { DisTube } = require('distube'); // Import correct de DisTube
+const { DisTube } = require('distube');
 const { sequelize } = require('./models');
 
 // Création du client Discord
@@ -23,10 +23,7 @@ client.commands = new Collection();
 // Initialisation de Distube et attache-le au client
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
-  leaveOnStop: false,
-  leaveOnEmpty: false,
-  searchSongs: 5, // Nombre de résultats de recherche à retourner
-  // Vous pouvez ajouter d'autres options selon vos besoins
+  // Autres options si nécessaire
 });
 
 // Chargement des commandes récursivement
@@ -80,9 +77,15 @@ client.on('interactionCreate', async interaction => {
 sequelize.sync()
   .then(() => {
     console.log('✅ Modèles synchronisés avec la base de données.');
-    // Démarrage du bot si nécessaire ici
   })
   .catch(err => console.error('Erreur de synchronisation :', err));
+
+// Dès que le bot est prêt, démarre les tâches cron
+client.once('ready', () => {
+  console.log(`✅ Bot prêt en tant que ${client.user.tag}`);
+  const startCron = require('./cron');
+  startCron(client);
+});
 
 // Connexion du bot avec le token Discord
 client.login(process.env.TOKEN);
