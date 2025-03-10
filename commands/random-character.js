@@ -8,9 +8,9 @@ function getRandomInt(min, max) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('randomcharacter')
-    .setDescription('Affiche un personnage aléatoire de Jikan avec des infos clés.'),
+    .setDescription('Affiche un personnage aléatoire de Jikan avec des infos clés.'), // < 100 caractères
   async execute(interaction) {
-    // Import dynamique de node-fetch
+    // Import dynamique de node‑fetch (compatible ESM)
     const { default: fetch } = await import('node-fetch');
     
     await interaction.deferReply();
@@ -45,44 +45,38 @@ module.exports = {
         return interaction.editReply("❌ Les données du personnage sélectionné sont incomplètes.");
       }
       
-      // Limiter la description
-      let fullDescription = randomCharacter.about ? randomCharacter.about.trim() : 'Aucune description.';
-      let truncatedDescription;
-      if (fullDescription.includes('\n')) {
-        const lines = fullDescription.split('\n');
-        truncatedDescription = lines.length > 10 ? lines.slice(0, 10).join('\n') + "\n..." : lines.join('\n');
-      } else {
-        truncatedDescription = fullDescription.length > 500 ? fullDescription.substring(0, 500) + "..." : fullDescription;
-      }
-      
-      // Récupérer les détails complets du personnage pour obtenir les informations sur l'anime
+      // Récupérer les détails complets du personnage pour obtenir des infos supplémentaires (alias, etc.)
       const fullResponse = await fetch(`https://api.jikan.moe/v4/characters/${randomCharacter.mal_id}/full`);
       const fullJson = await fullResponse.json();
+      const characterDetails = fullJson && fullJson.data ? fullJson.data : {};
+      const aliases = characterDetails.nicknames && characterDetails.nicknames.length > 0
+        ? characterDetails.nicknames.join(', ')
+        : "Aucun alias";
+      
+      // Récupérer le premier anime dans lequel le personnage apparaît
       let animeInfo = null;
-      if (fullJson && fullJson.data && fullJson.data.anime && fullJson.data.anime.length > 0) {
-        // On prend le premier anime dans lequel le personnage apparaît
-        animeInfo = fullJson.data.anime[0].anime;
+      if (characterDetails.anime && characterDetails.anime.length > 0) {
+        animeInfo = characterDetails.anime[0].anime;
       }
       
       // Création de l'embed principal
       const embed = new EmbedBuilder()
         .setTitle(randomCharacter.name)
-        .setDescription(truncatedDescription)
-        // Mettre en avant le personnage avec une grande image
-        .setImage(randomCharacter.images.jpg.image_url)
-        .setColor('#FF4500');
+        .setColor('#FF4500')
+        // Affichage en grande image pour mettre en avant le personnage
+        .setImage(randomCharacter.images.jpg.image_url);
       
-      // Si un anime est trouvé, l'ajouter dans l'embed et utiliser son image en thumbnail
-      if (animeInfo) {
-        embed.addFields({ name: "Anime", value: `[${animeInfo.title}](${animeInfo.url})`, inline: true });
-        if (animeInfo.images && animeInfo.images.jpg && animeInfo.images.jpg.image_url) {
-          embed.setThumbnail(animeInfo.images.jpg.image_url);
-        } else {
-          embed.setThumbnail(randomCharacter.images.jpg.image_url);
-        }
-      } else {
-        // Sinon, utiliser l'image du personnage en thumbnail (optionnel)
-        embed.setThumbnail(randomCharacter.images.jpg.image_url);
+      // Ajout des infos clés sous forme de champs
+      embed.addFields(
+        { name: "Alias", value: aliases, inline: true },
+        { name: "Favoris", value: randomCharacter.favorites ? randomCharacter.favorites.toString() : "N/A", inline: true },
+        { name: "Anime", value: animeInfo ? `[${animeInfo.title}](${animeInfo.url})` : "Aucun anime", inline: true },
+        { name: "Lien MAL", value: randomCharacter.url ? `[Voir sur MAL](${randomCharacter.url})` : "N/A", inline: false }
+      );
+      
+      // Utiliser l'image de l'anime en thumbnail si disponible
+      if (animeInfo && animeInfo.images && animeInfo.images.jpg && animeInfo.images.jpg.image_url) {
+        embed.setThumbnail(animeInfo.images.jpg.image_url);
       }
       
       const selectMenu = new StringSelectMenuBuilder()
@@ -117,6 +111,46 @@ module.exports = {
       
       const buttonRow = new ActionRowBuilder().addComponents(descButton, animeButton, favButton);
       
+        // Insertion en DB avec Sequelize (pour test)
+        if (process.env.INSERT_TEST === 'true') {
+            const Anime = require('../models/Anime');
+            const Character = require('../models/Character');
+        
+            try {
+            if (animeInfo) {
+                // Insertion ou mise à jour de l'animé dans la table "anime"
+                await Anime.upsert({
+                mal_id: animeInfo.mal_id,
+                title: animeInfo.title,
+                url: animeInfo.url,
+                image_url: animeInfo.images && animeInfo.images.jpg ? animeInfo.images.jpg.image_url : null,
+                synopsis: animeInfo.synopsis || null,
+                type: animeInfo.type || null,
+                episodes: animeInfo.episodes || null,
+                score: animeInfo.score || null,
+                rank: animeInfo.rank || null,
+                popularity: animeInfo.popularity || null,
+                members: animeInfo.members || null,
+                favorites: animeInfo.favorites || null,
+                });
+            }
+            
+            // Insertion ou mise à jour du personnage dans la table "character"
+            await Character.upsert({
+                mal_id: randomCharacter.mal_id,
+                name: randomCharacter.name,
+                image_url: randomCharacter.images.jpg.image_url,
+                favorites: randomCharacter.favorites || 0,
+                url: randomCharacter.url,
+                aliases: aliases, // issu de votre code précédent pour les alias
+                anime_mal_id: animeInfo ? animeInfo.mal_id : null,
+            });
+            console.log(`Personnage ${randomCharacter.name} inséré avec Sequelize.`);
+            } catch (sequelizeError) {
+            console.error("Erreur lors de l'insertion avec Sequelize :", sequelizeError);
+            }
+        }
+
       await interaction.editReply({ embeds: [embed], components: [selectRow, buttonRow] });
     } catch (error) {
       console.error("Erreur lors de la récupération du personnage :", error);
