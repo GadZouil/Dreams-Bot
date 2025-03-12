@@ -1,86 +1,91 @@
-// index.js
-require('dotenv').config();  // Charge les variables d'environnement depuis le fichier .env
-
-const { Client, GatewayIntentBits } = require('discord.js');
-// Crée une nouvelle instance de client Discord.
-const client = new Client({
-    intents: [GatewayIntentBits.Guilds] // Intention d'accès aux guildes (serveurs Discord)
-});
-
-// Événement déclenché quand le bot est prêt et connecté à Discord
-client.once('ready', () => {
-    console.log(`✅ Bot connecté en tant que ${client.user.tag}`);
-});
+// Chargement des variables d'environnement
+require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
-const { Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { DisTube } = require('distube');
+const { sequelize } = require('./models');
 
-// Préparer une collection (map) pour stocker les commandes du bot
-client.commands = new Collection();
-
-// Lire tous les fichiers du dossier commands (qui finissent par .js)
-const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    // Vérifier que la commande exporte bien les propriétés nécessaires
-    if (command.data && command.execute) {
-        client.commands.set(command.data.name, command);
-    } else {
-        console.log(`[AVERTISSEMENT] La commande dans ${file} n'a pas "data" ou "execute".`);
-    }
-}
-
-// Écouter les interactions de commande (slash commands)
-client.on('interactionCreate', async interaction => {
-
-    if (interaction.isChatInputCommand()) {
-        // ... (gestion des commandes slash, comme implémenté plus haut)
-        const command = client.commands.get(interaction.commandName);
-        // exécuter la commande...
-    } else if (interaction.isButton()) {
-        // Gérer les clics de bouton
-        if (interaction.customId === 'poll_yes') {
-            await interaction.reply({ content: '👍 Vous avez voté **Oui**.', ephemeral: true });
-        } else if (interaction.customId === 'poll_no') {
-            await interaction.reply({ content: '👎 Vous avez voté **Non**.', ephemeral: true });
-        }
-    } else if (interaction.isStringSelectMenu()) {
-        if (interaction.customId === 'choose_role') {
-            const selected = interaction.values[0];  // values est un tableau des valeurs choisies (ici une seule possible)
-            await interaction.reply({ content: `Vous avez choisi : **${selected}**`, ephemeral: true });
-        }
-    } else if (interaction.isModalSubmit()) {
-        if (interaction.customId === 'feedbackModal') {
-            // Récupérer les valeurs saisies
-            const topic = interaction.fields.getTextInputValue('feedbackTopic');
-            const description = interaction.fields.getTextInputValue('feedbackDescription');
-            console.log("Feedback reçu :", topic, description);
-
-            await interaction.reply({ content: "🙏 Merci pour votre feedback !", ephemeral: true });
-            // Ici on pourrait par exemple envoyer ces infos dans un salon spécial, ou les stocker en base, etc.
-        }
-    }
-
-    if (!interaction.isChatInputCommand()) return;  // ne traiter que les commandes slash (et pas les autres interactions ici)
-
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
-
-    try {
-        // Exécuter la commande correspondante
-        await command.execute(interaction);
-    } catch (error) {
-        console.error(error);
-        // Répondre par un message d'erreur utilisateur si la commande a échoué
-        await interaction.reply({ content: 'Une erreur est survenue en exécutant la commande.', ephemeral: true });
-    }
+// Création du client Discord
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
+  ],
 });
 
+// Collection pour stocker les commandes
+client.commands = new Collection();
 
+// Initialisation de Distube et attache-le au client
+client.distube = new DisTube(client, {
+  emitNewSongOnly: true,
+  // Autres options si nécessaire
+});
 
-// On démarre la connexion du bot avec son token
+// Chargement des commandes récursivement
+function loadCommands(dir) {
+  const files = fs.readdirSync(dir, { withFileTypes: true });
+  for (const file of files) {
+    const filePath = path.join(dir, file.name);
+    if (file.isDirectory()) {
+      loadCommands(filePath);
+    } else if (file.name.endsWith('.js')) {
+      const command = require(filePath);
+      if (command.data && command.execute) {
+        client.commands.set(command.data.name, command);
+        console.log(`✅ Commande chargée : ${command.data.name} (${filePath})`);
+      } else {
+        console.log(`[⚠️] Commande ignorée (manque "data" ou "execute"): ${filePath}`);
+      }
+    }
+  }
+}
+
+const commandsPath = path.join(__dirname, 'commands');
+loadCommands(commandsPath);
+
+// Importation des handlers
+const buttonHandler = require('./handlers/buttonHandler');
+const selectMenuHandler = require('./handlers/selectMenuHandler');
+const modalHandler = require('./handlers/modalHandler');
+
+// Gestion des interactions
+client.on('interactionCreate', async interaction => {
+  if (interaction.isChatInputCommand()) {
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
+    try {
+      await command.execute(interaction);
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({ content: '❌ Une erreur est survenue en exécutant la commande.', ephemeral: true });
+    }
+  } else if (interaction.isButton()) {
+    await buttonHandler(interaction);
+  } else if (interaction.isStringSelectMenu()) {
+    await selectMenuHandler(interaction);
+  } else if (interaction.isModalSubmit()) {
+    await modalHandler(interaction);
+  }
+});
+
+// Synchronisation des modèles
+sequelize.sync()
+  .then(() => {
+    console.log('✅ Modèles synchronisés avec la base de données.');
+  })
+  .catch(err => console.error('Erreur de synchronisation :', err));
+
+// Dès que le bot est prêt, démarre les tâches cron
+client.once('ready', () => {
+  console.log(`✅ Bot prêt en tant que ${client.user.tag}`);
+  const startCron = require('./cron');
+  startCron(client);
+});
+
+// Connexion du bot avec le token Discord
 client.login(process.env.TOKEN);
